@@ -1,17 +1,4 @@
-use std::collections::HashMap;
 use std::fs;
-
-
-struct ProgramInputRange {
-  address: usize,
-  min: usize,
-  max: usize,
-}
-
-struct TargetOutput {
-  address: usize,
-  value: usize,
-}
 
 
 fn main() {
@@ -48,65 +35,20 @@ fn solve_part_1(original_program: &Vec<usize>) {
 }
 
 
-fn solve_part_2(program: &Vec<usize>) {
-
-  let inputs = vec![
-    ProgramInputRange {
-      address: 1,
-      min: 0,
-      max: 99,
-    },
-    ProgramInputRange {
-      address: 2,
-      min: 0,
-      max: 99,
-    },
-  ];
-
-  let target = TargetOutput {
-    address: 0,
-    value: 19690720,
-  };
-
-  find_valid_inputs(&program, &target, &inputs);
-}
-
-
-fn find_valid_inputs(
-  original_program: &Vec<usize>,
-  target: &TargetOutput,
-  inputs: &Vec<ProgramInputRange>,
-) {
-
-  let mut input_values: HashMap<usize, usize> = inputs
-    .clone()
-    .iter()
-    .map(|input| (input.address, input.min))
-    .collect();
-
-  'outer: for current_input in inputs {
-    for next_val in current_input.min..(current_input.max+1) {
-      // update the current input to the next value
-      *input_values.get_mut(&current_input.address).unwrap() = next_val;
-
+fn solve_part_2(original_program: &Vec<usize>) {
+  for val1 in 0..100 {
+    for val2 in 0..100 {
       let mut program = original_program.clone();
 
-      let mut debug_str = String::new();
-
-      // set the inputs
-      for (address, value) in input_values.iter() {
-        program[address.clone()] = value.clone();
-        debug_str.push_str(
-          &format!("##  program[{}] = {} ##", address, value)
-        );
-      }
-      println!("{}", debug_str);
-
+      program[1] = val1;
+      program[2] = val2;
       run_intcode_program(&mut program);
 
-      if program[target.address] == target.value {
-        println!("Found correct input values: {:?}", input_values);
-        break 'outer;
+      if program[0] == 19690720 {
+        println!("Found the solution!");
+        println!("program[1] = {:?}", val1);
+        println!("program[2] = {:?}", val2);
+        println!("(noun * 100) + verb = {:?}", (val1 * 100) + val2);
       }
     }
   }
@@ -123,7 +65,6 @@ fn run_intcode_program(program: &mut Vec<usize>) {
     let output_pos = program[pos+3];
 
     if opcode == 99 {
-      println!("Halting!");
       break;
     }
 
