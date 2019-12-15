@@ -10,8 +10,60 @@ fn main() {
 
   let wire_paths: Vec<&str> = raw_input.trim().split('\n').collect();
 
-  solve_part_1(&wire_paths[0], &wire_paths[1]);
+  // solve_part_1(&wire_paths[0], &wire_paths[1]);
+  solve_part_2(&wire_paths[0], &wire_paths[1]);
 }
+
+struct LineInfo {
+  line: Line,
+  cumulative_steps: i32,
+}
+
+// Solve part 2
+
+fn solve_part_2(path1: &str, path2: &str) {
+  let path1_lines = parse_paths(&path1);
+  let path2_lines = parse_paths(&path2);
+
+  let path1_line_infos = get_cumulative_steps_for_lines(path1_lines);
+  let path2_line_infos = get_cumulative_steps_for_lines(path2_lines);
+
+  let mut intersections: Vec<(Point, i32)>= Vec::new();
+
+  for info1 in path1_line_infos.iter() {
+    for info2 in path2_line_infos.iter() {
+      if let Some(point) = get_intersection(&info1.line, &info2.line) {
+        let total_steps: i32 = (
+          (info1.cumulative_steps - dist(&info1.line.p2, &point)) +
+          (info2.cumulative_steps - dist(&info2.line.p2, &point))
+        );
+        intersections.push((point, total_steps));
+      }
+    }
+  }
+
+  let mut ordered_intersections: Vec<&(Point, i32)> = intersections.iter().collect();
+  ordered_intersections.sort_by_key(|(_, steps)| steps);
+
+  println!("-----------------------------");
+  println!("Ordered Intersections:");
+  for (point, num_steps) in ordered_intersections.iter() {
+    println!("num_steps: {}, intersection: {:?}", num_steps, point);
+  }
+}
+
+fn get_cumulative_steps_for_lines(lines: Vec<Line>) -> Vec<LineInfo> {
+  let mut line_infos: Vec<LineInfo> = Vec::new();
+  let mut cumulative_steps = 0;
+
+  for line in lines {
+    cumulative_steps += grid_line_len(&line);
+    line_infos.push(LineInfo { line, cumulative_steps });
+  }
+  line_infos
+}
+
+// Solve part 1
 
 fn solve_part_1(path1: &str, path2: &str) {
   let t1 = Instant::now();
@@ -150,7 +202,17 @@ fn point_size(point: &Point) -> i32 {
   point.x.abs() + point.y.abs()
 }
 
+fn grid_line_len(line: &Line) -> i32 {
+  let Line { ref p1, ref p2, .. } = line;
+  (p1.x - p2.x).abs() + (p1.y - p2.y).abs()
+}
+
 fn prettify_line(line: &Line) -> String {
-  format!("Line {{ p1: ({}, {}) p2: ({}, {}) }}",
-    line.p1.x, line.p1.y, line.p2.x, line.p2.y)
+  let Line { ref p1, ref p2, .. } = line;
+  format!("Line {{ p1: ({}, {}) p2: ({}, {}) }}", p1.x, p1.y, p2.x, p2.y)
+}
+
+
+fn dist(p1: &Point, p2: &Point) -> i32 {
+  (p1.x - p2.x).abs() + (p1.y - p2.y).abs()
 }
