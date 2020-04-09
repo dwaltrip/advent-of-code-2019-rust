@@ -1,23 +1,49 @@
 use std::fs;
 
+const DEBUG: bool = false;
+// const DEBUG: bool = true;
+
 fn main() {
   let raw_input = fs::read_to_string("./puzzle-input.txt")
     .expect("Something went wrong reading the file");
 
-  let mut values: Vec<isize> = raw_input
+  let program: Vec<isize> = raw_input
     .trim()
     .split(',')
     .map(|s| s.parse().unwrap())
     .collect();
 
-  let output = run_intcode_program(&mut values, 1);
-  println!("output: {:?}", output);
+  solve_part_1(&program);
+  solve_part_2(&program);
 }
+
+fn solve_part_1(program: &Vec<isize>) {
+  println!("---- Solving part 1! ----");
+  let output = run_intcode_program(&mut program.clone(), 1);
+  println!("Output: {:?}", output);
+}
+
+fn solve_part_2(program: &Vec<isize>) {
+  println!("---- Solving part 2! ----");
+  let output = run_intcode_program(&mut program.clone(), 5);
+  println!("Output: {:?}", output);
+}
+
+const MAX_LOOP_ITERATIONS: isize = 10_000;
 
 fn run_intcode_program(values: &mut Vec<isize>, input: isize) -> Vec<isize> {
   let mut output = Vec::new();
 
   let mut instruction_pointer = 0;
+  let mut iteration_count = 0;
+
+  if DEBUG {
+    println!("");
+    println!("-----------------------------");
+    println!("Input: {:?}", input);
+    println!("Initial program: {:?}", values);
+  }
+
   loop {
     let opcode_data = values[instruction_pointer].to_string();
 
@@ -46,6 +72,10 @@ fn run_intcode_program(values: &mut Vec<isize>, input: isize) -> Vec<isize> {
       2 => Opcode::Multiply,
       3 => Opcode::Input,
       4 => Opcode::Output,
+      5 => Opcode::JumpIfTrue,
+      6 => Opcode::JumpIfFalse,
+      7 => Opcode::LessThan,
+      8 => Opcode::Equals,
       99 => Opcode::Halt,
       _ => panic!("Invalid opcode: {:?}", opcode_num),
     };
@@ -54,6 +84,10 @@ fn run_intcode_program(values: &mut Vec<isize>, input: isize) -> Vec<isize> {
       Opcode::Multiply => 3,
       Opcode::Input => 1,
       Opcode::Output => 1,
+      Opcode::JumpIfTrue => 2,
+      Opcode::JumpIfFalse => 2,
+      Opcode::LessThan => 3,
+      Opcode::Equals => 3,
       Opcode::Halt => 0,
     };
 
@@ -74,6 +108,13 @@ fn run_intcode_program(values: &mut Vec<isize>, input: isize) -> Vec<isize> {
       });
     }
 
+    let mut should_increment_pointer = true;
+
+    if DEBUG {
+      println!("Doing opcode {:?}", opcode);
+      println!("\tparams: {:?}", params);
+    }
+
     match opcode {
       Opcode::Add => {
         values[params[2].value as usize] =
@@ -91,12 +132,50 @@ fn run_intcode_program(values: &mut Vec<isize>, input: isize) -> Vec<isize> {
       Opcode::Output => {
         output.push(get_param_val(&values, &params[0]));
       },
+      Opcode::JumpIfTrue => {
+        if get_param_val(&values, &params[0]) != 0 {
+          should_increment_pointer = false;
+          instruction_pointer = get_param_val(&values, &params[1]) as usize;
+        }
+      },
+      Opcode::JumpIfFalse => {
+        if get_param_val(&values, &params[0]) == 0 {
+          should_increment_pointer = false;
+          instruction_pointer = get_param_val(&values, &params[1]) as usize;
+        }
+      },
+      Opcode::LessThan => {
+        let is_less_than =
+          get_param_val(&values, &params[0]) <
+          get_param_val(&values, &params[1]);
+
+        values[params[2].value as usize] = if is_less_than { 1 } else { 0 };
+      },
+      Opcode::Equals => {
+        let is_equal =
+          get_param_val(&values, &params[0]) ==
+          get_param_val(&values, &params[1]);
+
+        values[params[2].value as usize] = if is_equal { 1 } else { 0 };
+      },
       Opcode::Halt => {
         break
       }
     }
 
-    instruction_pointer += num_params + 1;
+    if should_increment_pointer {
+      instruction_pointer += num_params + 1;
+    }
+
+    if DEBUG {
+      println!("\tUpdated state: {:?}", values);
+      println!("\tinstruction_pointer: {:?}", instruction_pointer);
+    }
+
+    iteration_count += 1;
+    if iteration_count >= MAX_LOOP_ITERATIONS {
+      panic!("MAX_LOOP_ITERATIONS exceeded. Aborting.. ");
+    }
 
     if instruction_pointer >= values.len() {
       println!("Unexpected... ");
@@ -133,6 +212,10 @@ enum Opcode {
   Multiply,
   Input,
   Output,
+  JumpIfTrue,
+  JumpIfFalse,
+  LessThan,
+  Equals,
   Halt,
 }
 
@@ -179,17 +262,26 @@ mod tests {
     }
   }
 
+  struct TestCase {
+    program: Vec<isize>,
+    input: isize,
+    final_state: Vec<isize>,
+    output: Vec<isize>,
+  }
+
+  fn run_test_cases(cases: &Vec<TestCase>) {
+    for case in cases {
+      let mut program = case.program.clone();
+      let output = run_intcode_program(&mut program, case.input);
+      assert_eq!(program, case.final_state);
+      assert_eq!(output, case.output);
+    }
+  }
+
   #[test]
   fn op_codes_3_and_4() {
-    struct Case {
-      program: Vec<isize>,
-      input: isize,
-      final_state: Vec<isize>,
-      output: Vec<isize>,
-    }
-
     let cases = vec![
-      Case {
+      TestCase {
         program: vec![3,0,4,0,99],
         input: 1,
         final_state: vec![1, 0, 4, 0, 99],
@@ -197,11 +289,102 @@ mod tests {
       },
     ];
 
-    for case in cases {
-      let mut program = case.program.clone();
-      let output = run_intcode_program(&mut program, case.input);
-      assert_eq!(program, case.final_state);
-      assert_eq!(output, case.output);
-    }
+    run_test_cases(&cases);
+  }
+
+  #[test]
+  fn op_code_5() {
+    // Basic tests for jump-if-true. I wrote these.
+    let cases = vec![
+      TestCase {
+        // Address 8 is non-zero, so it does jump.
+        program: vec![1005, 8, 5, 4, 9, 4, 10, 99, 1, -1, -2],
+        input: -1,
+        final_state: vec![1005, 8, 5, 4, 9, 4, 10, 99, 1, -1, -2],
+        output: vec![-2],
+      },
+      TestCase {
+        // Address 8 is 0, so it does NOT jump.
+        program: vec![1005, 8, 5, 4, 9, 4, 10, 99, 0, -1, -2],
+        input: -1,
+        final_state: vec![1005, 8, 5, 4, 9, 4, 10, 99, 0, -1, -2],
+        output: vec![-1, -2],
+      },
+    ];
+
+    run_test_cases(&cases);
+  }
+
+  #[test]
+  fn op_code_6() {
+    // Basic tests for jump-if-false. I wrote these.
+    let cases = vec![
+      TestCase {
+        // Address 8 is non-zero, so it does NOT jump.
+        program: vec![1006, 8, 5, 4, 9, 4, 10, 99, 1, -1, -2],
+        input: -1,
+        final_state: vec![1006, 8, 5, 4, 9, 4, 10, 99, 1, -1, -2],
+        output: vec![-1, -2],
+      },
+      TestCase {
+        // Address 8 is 0, so it does jump.
+        program: vec![1006, 8, 5, 4, 9, 4, 10, 99, 0, -1, -2],
+        input: -1,
+        final_state: vec![1006, 8, 5, 4, 9, 4, 10, 99, 0, -1, -2],
+        output: vec![-2],
+      },
+    ];
+
+    run_test_cases(&cases);
+  }
+
+  #[test]
+  fn op_code_8() {
+    let program1 = vec![3,9,8,9,10,9,4,9,99,-1,8];
+    let program2 = vec![3,3,1108,-1,8,3,4,3,99];
+
+    let cases = vec![
+      // position mode (1st bulleted example in part 2)
+      TestCase {
+        program: program1.clone(),
+        input: 8, // equals 8
+        final_state: vec![3,9,8,9,10,9,4,9,99,1,8],
+        output: vec![1],
+      },
+      TestCase {
+        program: program1.clone(),
+        input: 5, // less than 8
+        final_state: vec![3,9,8,9,10,9,4,9,99,0,8],
+        output: vec![0],
+      },
+      TestCase {
+        program: program1.clone(),
+        input: 900, // greater than 8
+        final_state: vec![3,9,8,9,10,9,4,9,99,0,8],
+        output: vec![0],
+      },
+
+      // immediate mode (3rd bulleted example in part 2)
+      TestCase {
+        program: program2.clone(),
+        input: 8, // equals 8,
+        final_state: vec![3,3,1108,1,8,3,4,3,99],
+        output: vec![1],
+      },
+      TestCase {
+        program: program2.clone(),
+        input: 5, // less than 8,
+        final_state: vec![3,3,1108,0,8,3,4,3,99],
+        output: vec![0],
+      },
+      TestCase {
+        program: program2.clone(),
+        input: 900, // greater than 8,
+        final_state: vec![3,3,1108,0,8,3,4,3,99],
+        output: vec![0],
+      },
+    ];
+
+    run_test_cases(&cases);
   }
 }
