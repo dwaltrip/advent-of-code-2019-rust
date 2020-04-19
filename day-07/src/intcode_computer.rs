@@ -3,13 +3,45 @@ const DEBUG: bool = false;
 
 const MAX_LOOP_ITERATIONS: isize = 10_000;
 
-// Copied from Day 5
-pub fn run_program(values: &mut Vec<isize>, inputs: &Vec<isize>) -> Vec<isize> {
+pub struct Program {
+  values: Vec<isize>,
+  status: ProgramStatus,
+  instruction_pointer: usize,
+}
+
+impl Program {
+  pub fn new(values: Vec<isize>) -> Program {
+    Program {
+      values,
+      status: ProgramStatus::Running,
+      instruction_pointer: 0,
+    }
+  }
+
+  pub fn is_halted(&self) -> bool {
+    match self.status {
+      ProgramStatus::Halted => true,
+      _ => false,
+    }
+  }
+}
+
+pub enum ProgramStatus {
+  Running,
+  Halted,
+}
+
+// Built off of Day 5 implementation (the puzzle says to do this)
+pub fn run_program(program: &mut Program, inputs: &Vec<isize>) -> Vec<isize> {
+  if program.is_halted() {
+    panic!("Cant run a halted program");
+  }
+  let values = &mut program.values;
   let mut inputs = inputs.clone();
   inputs.reverse(); // this allows us to `pop` them
 
   let mut output = Vec::new();
-  let mut instruction_pointer = 0;
+  let mut instruction_pointer = program.instruction_pointer;
   let mut iteration_count = 0;
 
   if DEBUG {
@@ -102,8 +134,11 @@ pub fn run_program(values: &mut Vec<isize>, inputs: &Vec<isize>) -> Vec<isize> {
           get_param_val(&values, &params[1]);
       },
       Opcode::Input => {
-        values[params[0].value as usize] = inputs.pop()
-          .expect("Ran out of inputs...");
+        if inputs.len() > 0 {
+          values[params[0].value as usize] = inputs.pop().unwrap();
+        } else {
+          break
+        }
       },
       Opcode::Output => {
         output.push(get_param_val(&values, &params[0]));
@@ -135,6 +170,7 @@ pub fn run_program(values: &mut Vec<isize>, inputs: &Vec<isize>) -> Vec<isize> {
         values[params[2].value as usize] = if is_equal { 1 } else { 0 };
       },
       Opcode::Halt => {
+        program.status = ProgramStatus::Halted;
         break
       }
     }
@@ -154,11 +190,12 @@ pub fn run_program(values: &mut Vec<isize>, inputs: &Vec<isize>) -> Vec<isize> {
     }
 
     if instruction_pointer >= values.len() {
-      println!("Unexpected... ");
+      println!("Unexpected... instruction_pointer is too large.");
       break
     }
   }
 
+  program.instruction_pointer = instruction_pointer;
   output
 }
 
@@ -232,9 +269,9 @@ mod tests {
     ];
 
     for case in cases {
-      let mut program = case.program.clone();
+      let mut program = Program::new(case.program.clone());
       run_program(&mut program, &vec![0]);
-      assert_eq!(program, case.end_state);
+      assert_eq!(program.values, case.end_state);
     }
   }
 
@@ -247,9 +284,9 @@ mod tests {
 
   fn run_test_cases(cases: &Vec<TestCase>) {
     for case in cases {
-      let mut program = case.program.clone();
+      let mut program = Program::new(case.program.clone());
       let output = run_program(&mut program, &case.inputs);
-      assert_eq!(program, case.end_state);
+      assert_eq!(program.values, case.end_state);
       assert_eq!(output, case.output);
     }
   }
