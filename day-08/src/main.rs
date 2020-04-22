@@ -1,5 +1,9 @@
 use std::fs;
 
+const BLACK: u32 = 0;
+const WHITE: u32 = 1;
+const TRANSARENT: u32 = 2;
+
 fn main() {
   let input = fs::read_to_string("./puzzle-input.txt")
     .expect(&format!("Problem reading file"))
@@ -10,7 +14,38 @@ fn main() {
 
   let layers = parse_layers(&input, 25, 6);
   solve_part_1(&layers);
+  solve_part_2(&layers);
 }
+
+fn solve_part_2(layers: &Vec<Vec<u32>>) {
+  let mut decoded_img: Vec<u32> = Vec::new();
+
+  let layer_size = layers[0].len();
+  for i in 0..layer_size {
+    let mut done = false;
+    for layer in layers.iter() {
+      if layer[i] != TRANSARENT {
+        decoded_img.push(layer[i]);
+        done = true;
+        break
+      }
+    }
+    if !done {
+      decoded_img.push(TRANSARENT);
+    }
+  }
+
+  println!("");
+  for row in decoded_img.chunks(25) {
+    let pretty_row: String = row
+      .iter()
+      .map(|x| match *x { WHITE => '#', _ => ' ' })
+      .collect();
+    println!("{}", pretty_row);
+  }
+  println!("");
+}
+
 
 fn solve_part_1(layers: &Vec<Vec<u32>>) {
   let mut min_zero_count = u32::max_value();
