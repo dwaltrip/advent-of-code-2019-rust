@@ -46,7 +46,6 @@ fn solve_part_2(program: &Vec<isize>) {
 }
 
 
-#[allow(dead_code)]
 fn compute_amplifiers(
   program: &Vec<isize>,
   phase_settings: &Vec<&isize>,
@@ -57,12 +56,7 @@ fn compute_amplifiers(
 
   for phase_setting_input in phase_settings {
     let mut program = intcode_computer::Program::new(program.clone());
-    output = intcode_computer::run_program(
-      &mut program,
-      // Is it weird that I'm double derefing here? Need to read more about
-      // rust iterators, for loops, and idiomatic usage in various contexts.
-      &vec![**phase_setting_input, current_input],
-    );
+    output = program.run(&vec![**phase_setting_input, current_input]);
     current_input = output[0];
   }
 
@@ -70,7 +64,6 @@ fn compute_amplifiers(
 }
 
 
-#[allow(dead_code)]
 fn compute_amplifiers_with_feedback(
   program: &Vec<isize>,
   phase_settings: &Vec<&isize>,
@@ -98,7 +91,7 @@ fn compute_amplifiers_with_feedback(
     }
 
     let index = indices.next().unwrap();
-    let mut program = amplifier_programs.get_mut(index).unwrap();
+    let program = amplifier_programs.get_mut(index).unwrap();
 
     if program.is_halted() {
       // println!("Continuing...");
@@ -115,7 +108,7 @@ fn compute_amplifiers_with_feedback(
         vec![current_input]
       };
 
-    output = intcode_computer::run_program(&mut program, &inputs);
+    output = program.run(&inputs);
     current_input = *output.get(0).expect("Program had no output.");
 
     counter += 1;
@@ -175,13 +168,12 @@ mod tests {
     ];
 
     for case in cases {
-      // This useless iter().collect() somehow solves the issue I was having
-      //   with Vec<&isize> vs. Vec<isize>
-      // In solve_part_1, `permutations()` returns references, but the TestCase struct 
-      //   here has owned values.
-      // Need to learn why this works... and also the idiomatic way to fix my issue.
-      let phase_settings = case.phase_settings.iter().collect();
-      let output = compute_amplifiers(&case.program, &phase_settings);
+      let output = compute_amplifiers(
+        &case.program,
+        // We need Vec<&isize> instead of Vec<isize>
+        // Not sure if there is a more idiomatic way of doing this
+        &case.phase_settings.iter().collect(),
+      );
       assert_eq!(output, case.output);
     }
   }
