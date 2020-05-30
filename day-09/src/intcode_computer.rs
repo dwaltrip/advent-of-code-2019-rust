@@ -11,6 +11,7 @@ pub struct Program {
   values: Vec<isize>,
   status: ProgramStatus,
   instruction_pointer: usize,
+  relative_base: isize,
 }
 
 pub enum ProgramStatus {
@@ -19,11 +20,17 @@ pub enum ProgramStatus {
 }
 
 impl Program {
-  pub fn new(values: Vec<isize>) -> Program {
+  pub fn new(values: &[isize]) -> Program {
+    // Day 9 instructions say that "The computer's available memory should be
+    //   much larger than the initial program".
+    // Guesstimating, I chose 100x the program length to meet this requirement.
+    let mut values_with_extra_memory = values.to_vec();
+    values_with_extra_memory.resize(values.len() * 100, 0);
     Program {
-      values,
+      values: values_with_extra_memory,
       status: ProgramStatus::Running,
       instruction_pointer: 0,
+      relative_base: 0,
     }
   }
 
@@ -34,7 +41,7 @@ impl Program {
     }
   }
 
-  pub fn run(&mut self, inputs: &Vec<isize>) -> Vec<isize> {
+  pub fn run(&mut self, inputs: &[isize]) -> Vec<isize> {
     if self.is_halted() {
       panic!("Cant run a halted program");
     }
@@ -70,6 +77,7 @@ impl Program {
         6 => Opcode::JumpIfFalse,
         7 => Opcode::LessThan,
         8 => Opcode::Equals,
+        9 => Opcode::RelativeBaseOffset,
         99 => Opcode::Halt,
         _ => panic!("Invalid opcode: {:?}", opcode_num),
       };
@@ -82,6 +90,7 @@ impl Program {
         Opcode::JumpIfFalse => 2,
         Opcode::LessThan => 3,
         Opcode::Equals => 3,
+        Opcode::RelativeBaseOffset => 1,
         Opcode::Halt => 0,
       };
 
@@ -162,6 +171,9 @@ impl Program {
 
           self.values[params[2].value as usize] = if is_equal { 1 } else { 0 };
         },
+        Opcode::RelativeBaseOffset => {
+          self.relative_base += self.get_param_val(&params[0]);
+        },
         Opcode::Halt => {
           self.status = ProgramStatus::Halted;
           break
@@ -199,6 +211,10 @@ impl Program {
     match param.mode {
       ParameterMode::Position => self.values[param.value as usize],
       ParameterMode::Immediate => param.value,
+      ParameterMode::Relative => {
+        let index = self.relative_base + param.value;
+        self.values[index as usize]
+      },
     }
   }
 }
@@ -215,6 +231,7 @@ impl Parameter {
     let mode = match mode {
       0 => ParameterMode::Position,
       1 => ParameterMode::Immediate,
+      2 => ParameterMode::Relative,
       _ => panic!("Invalid mode: {:?}", mode),
     };
     Self { value, mode }
@@ -225,6 +242,7 @@ impl Parameter {
 enum ParameterMode {
   Position,
   Immediate,
+  Relative,
 }
 
 #[derive(Debug)]
@@ -237,6 +255,7 @@ enum Opcode {
   JumpIfFalse,
   LessThan,
   Equals,
+  RelativeBaseOffset,
   Halt,
 }
 
@@ -254,9 +273,13 @@ mod tests {
 
   fn run_test_cases(cases: &Vec<TestCase>) {
     for case in cases {
-      let mut program = Program::new(case.program.clone());
+      let mut program = Program::new(&case.program);
       let output = program.run(&case.inputs);
-      assert_eq!(program.values, case.end_state);
+      assert!(case.end_state.len() > 0);
+      assert_eq!(
+        &program.values[..case.end_state.len()],
+        &case.end_state[..],
+      );
       assert_eq!(output, case.output);
     }
   }
@@ -404,6 +427,24 @@ mod tests {
         inputs: vec![900], // greater than 8,
         end_state: vec![3,3,1108,0,8,3,4,3,99],
         output: vec![0],
+      },
+    ];
+
+    run_test_cases(&cases);
+  }
+
+  #[test]
+  fn op_code_9() {
+    let quine_program = vec![
+      109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99,
+    ];
+
+    let cases = vec![
+      TestCase {
+        program: quine_program.clone(),
+        inputs: vec![],
+        end_state: quine_program.clone(),
+        output: quine_program.clone(),
       },
     ];
 
