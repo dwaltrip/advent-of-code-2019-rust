@@ -245,44 +245,6 @@ enum Opcode {
 mod tests {
   use super::*;
 
-  #[test]
-  fn works_with_op_codes_1_2_99() {
-    struct Case {
-      program: Vec<isize>,
-      end_state: Vec<isize>,
-    }
-
-    // Example programs from Day 2
-    let cases = vec![
-      Case {
-        program:   vec![1,0,0,0,99],
-        end_state: vec![2,0,0,0,99],
-      },
-      Case {
-        program:   vec![2,3,0,3,99],
-        end_state: vec![2,3,0,6,99],
-      },
-      Case {
-        program:   vec![2,4,4,5,99,0],
-        end_state: vec![2,4,4,5,99,9801],
-      },
-      Case {
-        program:   vec![1,1,1,4,99,5,6,0,99],
-        end_state: vec![30,1,1,4,2,5,6,0,99],
-      },
-      Case {
-        program:   vec![1,9,10,3,2,3,11,0,99,30,40,50],
-        end_state: vec![3500,9,10,70,2,3,11,0,99,30,40,50],
-      },
-    ];
-
-    for case in cases {
-      let mut program = Program::new(case.program.clone());
-      program.run(&vec![0]);
-      assert_eq!(program.values, case.end_state);
-    }
-  }
-
   struct TestCase {
     program: Vec<isize>,
     inputs: Vec<isize>,
@@ -297,6 +259,45 @@ mod tests {
       assert_eq!(program.values, case.end_state);
       assert_eq!(output, case.output);
     }
+  }
+
+  #[test]
+  fn works_with_op_codes_1_2_99() {
+    // Example programs from Day 2
+    let cases = vec![
+      TestCase {
+        program:   vec![1,0,0,0,99],
+        end_state: vec![2,0,0,0,99],
+        inputs: vec![],
+        output: vec![],
+      },
+      TestCase {
+        program:   vec![2,3,0,3,99],
+        end_state: vec![2,3,0,6,99],
+        inputs: vec![],
+        output: vec![],
+      },
+      TestCase {
+        program:   vec![2,4,4,5,99,0],
+        end_state: vec![2,4,4,5,99,9801],
+        inputs: vec![],
+        output: vec![],
+      },
+      TestCase {
+        program:   vec![1,1,1,4,99,5,6,0,99],
+        end_state: vec![30,1,1,4,2,5,6,0,99],
+        inputs: vec![],
+        output: vec![],
+      },
+      TestCase {
+        program:   vec![1,9,10,3,2,3,11,0,99,30,40,50],
+        end_state: vec![3500,9,10,70,2,3,11,0,99,30,40,50],
+        inputs: vec![],
+        output: vec![],
+      },
+    ];
+
+    run_test_cases(&cases); 
   }
 
   #[test]
