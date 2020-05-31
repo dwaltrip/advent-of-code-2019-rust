@@ -5,7 +5,7 @@
 const DEBUG: bool = false;
 // const DEBUG: bool = true;
 
-const MAX_LOOP_ITERATIONS: isize = 10_000;
+const MAX_LOOP_ITERATIONS: isize = 1_000_000;
 
 pub struct Program {
   values: Vec<isize>,
