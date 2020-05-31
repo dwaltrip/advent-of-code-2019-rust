@@ -125,20 +125,20 @@ impl Program {
 
       match opcode {
         Opcode::Add => {
-          self.values[params[2].value as usize] =
-            self.get_param_val(&params[0]) +
-            self.get_param_val(&params[1]);
+          self.write_value(
+            &params[2],
+            self.get_param_val(&params[0]) + self.get_param_val(&params[1]),
+          );
         },
         Opcode::Multiply => {
-          self.values[params[2].value as usize] =
-            self.get_param_val(&params[0]) *
-            self.get_param_val(&params[1]);
+          self.write_value(
+            &params[2],
+            self.get_param_val(&params[0]) * self.get_param_val(&params[1]),
+          );
         },
         Opcode::Input => {
           match inputs_iter.next() {
-            Some(&input_value) => {
-              self.values[params[0].value as usize] = input_value;
-            },
+            Some(&value) => self.write_value(&params[0], value),
             None => break,
           }
         },
@@ -161,15 +161,13 @@ impl Program {
           let is_less_than =
             self.get_param_val(&params[0]) <
             self.get_param_val(&params[1]);
-
-          self.values[params[2].value as usize] = if is_less_than { 1 } else { 0 };
+          self.write_value(&params[2], if is_less_than { 1 } else { 0 });
         },
         Opcode::Equals => {
           let is_equal =
             self.get_param_val(&params[0]) ==
             self.get_param_val(&params[1]);
-
-          self.values[params[2].value as usize] = if is_equal { 1 } else { 0 };
+          self.write_value(&params[2], if is_equal { 1 } else { 0 });
         },
         Opcode::RelativeBaseOffset => {
           self.relative_base += self.get_param_val(&params[0]);
@@ -209,13 +207,30 @@ impl Program {
 
   fn get_param_val(&self, param: &Parameter) -> isize {
     match param.mode {
-      ParameterMode::Position => self.values[param.value as usize],
       ParameterMode::Immediate => param.value,
-      ParameterMode::Relative => {
-        let index = self.relative_base + param.value;
-        self.values[index as usize]
-      },
+      _ => self.values[self.get_index_for_param(&param)],
     }
+  }
+
+  fn write_value(&mut self, write_param: &Parameter, value: isize) {
+    let index_to_write_to = match write_param.mode {
+      ParameterMode::Immediate => {
+        // Per Day 5 instructions
+        panic!("Params that an instruction writes to will never be in immediate mode.");
+      },
+      _ => self.get_index_for_param(&write_param),
+    };
+    self.values[index_to_write_to as usize] = value;
+  }
+
+  fn get_index_for_param(&self, param: &Parameter) -> usize {
+    (match param.mode {
+      ParameterMode::Position => param.value,
+      ParameterMode::Immediate => {
+        panic!("Immediate mode params do not correspond to indices");
+      },
+      ParameterMode::Relative => self.relative_base + param.value,
+    }) as usize
   }
 }
 
