@@ -31,7 +31,9 @@ fn solve_part_2(map: &AsteroidMap) {
   );
 }
 
-fn find_nth_asteroid_to_blast(map: &AsteroidMap, station_pos: Point, n: usize) -> Option<Point> {
+fn find_nth_asteroid_to_blast(
+  map: &AsteroidMap, station_pos: Point, n: usize
+) -> Option<Point> {
   let asteroid_coords: Vec<PolarCoord> = map.asteroids
     .iter()
     .filter(|&p| *p != station_pos)
@@ -39,7 +41,8 @@ fn find_nth_asteroid_to_blast(map: &AsteroidMap, station_pos: Point, n: usize) -
     .collect();
 
   let mut asteroids_by_angle = gather_by_angle_and_sort_by_distance(&asteroid_coords);
-  let angles = sort_angles_clockwise_starting_at_90(
+  // NOTE: "up" is at 270 degrees, because the y-axis is inverted.
+  let angles = sort_angles_clockwise_starting_at_270(
     &asteroids_by_angle.keys().cloned().collect::<Vec<Angle>>()
   );
 
@@ -65,16 +68,7 @@ fn find_nth_asteroid_to_blast(map: &AsteroidMap, station_pos: Point, n: usize) -
       break;
     }
   }
-
   None
-}
-
-#[derive(Clone)]
-#[derive(Debug)]
-struct PolarCoord {
-  angle: Angle,
-  distance: f64,
-  point: Point,
 }
 
 #[derive(Clone)]
@@ -83,6 +77,14 @@ struct Angle {
   value: f64,
   rise: isize,
   run: isize,
+}
+
+#[derive(Clone)]
+#[derive(Debug)]
+struct PolarCoord {
+  angle: Angle,
+  distance: f64,
+  point: Point,
 }
 
 impl Angle {
@@ -132,15 +134,15 @@ impl Eq for PolarCoord {}
 
 fn relativize_point(relative_origin: &Point, point: &Point) -> Point {
   (
-    point.0 - relative_origin.0, 
-    point.1 - relative_origin.1, 
+    point.0 - relative_origin.0,
+    point.1 - relative_origin.1,
   )
 }
 
 fn unrelativize_coords(relative_origin: &Point, point: &Point) -> Point {
   (
-    point.0 + relative_origin.0, 
-    point.1 + relative_origin.1, 
+    point.0 + relative_origin.0,
+    point.1 + relative_origin.1,
   )
 }
 
@@ -275,7 +277,9 @@ fn parse_asteroid_map(input_string: &str) -> AsteroidMap {
   AsteroidMap { asteroids }
 }
 
-fn gather_by_angle_and_sort_by_distance(coords: &[PolarCoord]) -> HashMap<Angle, Vec<PolarCoord>> {
+fn gather_by_angle_and_sort_by_distance(
+  coords: &[PolarCoord]
+) -> HashMap<Angle, Vec<PolarCoord>> {
   let mut map = HashMap::new();
 
   for coord in coords.iter() {
@@ -285,14 +289,16 @@ fn gather_by_angle_and_sort_by_distance(coords: &[PolarCoord]) -> HashMap<Angle,
       .push(coord.clone());
   }
   for (_, coords_at_angle) in map.iter_mut() {
-    coords_at_angle.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
+    coords_at_angle.sort_by(|a, b| {
+      a.distance.partial_cmp(&b.distance).unwrap()
+    });
     coords_at_angle.reverse();
   } 
 
   map
 }
 
-// -----------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 
 fn gcd(a: isize, b: isize) -> isize {
   let a = a.abs();
@@ -317,10 +323,23 @@ fn isize_to_usize(num: isize) -> usize {
   num as usize
 }
 
-fn sort_angles_clockwise_starting_at_90(angles: &[Angle]) -> Vec<Angle> {
-  fn adjust_angle(theta: f64) -> f64 {
-    if theta > 90.0 { theta - 90.0 } else { theta + 270.0 }
-  }
+fn sort_angles_clockwise_starting_at_270(angles: &[Angle]) -> Vec<Angle> {
+  // NOTE: The y-axis is inverted for the grids in this puzzle.
+  // Angles in degrees normally go from [0 to 360) in counter-clockwise fashion.
+  // With an inverted y-axis, they go in clockwise fashion.
+  let zeroth_angle = 270.0;
+
+  let adjust_angle = |theta| {
+    // For zeroth angle to become the new zero, we need "greater than or equal to",
+    //   not just "greater than".
+    // I think if the y-axis was not inverted, we would want "greater than".
+    if theta >= zeroth_angle {
+      theta - zeroth_angle
+    }
+    else {
+      theta + (360.0 - zeroth_angle)
+    }
+  };
 
   let mut copy = angles.to_vec();
   copy.sort_by(|a, b| {
@@ -328,11 +347,10 @@ fn sort_angles_clockwise_starting_at_90(angles: &[Angle]) -> Vec<Angle> {
     let b_val = adjust_angle(b.value);
     a_val.partial_cmp(&b_val).unwrap()
   });
-  copy.reverse();
   copy
 }
 
-// -----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -547,32 +565,100 @@ mod tests {
       ..#.....X...###..
       ..#.#.....#....##
     ");
-    let station_pos = (8, 3);
+    let map = parse_asteroid_map(&input);
+    let station = (8, 3);
 
+    let asteroids_by_blast_order = vec![
+      // first 9
+      (8, 1), (9, 0), (9, 1), (10, 0), (9, 2), // 1-5
+        (11, 1), (12, 1), (11, 2), (15, 1), // 6-9
+      // second 9
+      (12, 2), (13, 2), (14, 2), (15, 2), (12, 3), // 10-14
+        (16, 4), (15, 4), (10, 4), (4, 4), // 15-18
+    ];
+
+    for (n, &pos) in asteroids_by_blast_order.iter().enumerate() { 
+      assert_eq!(find_nth_asteroid_to_blast(&map, station, n+1).unwrap(), pos);
+    }
+  }
+
+  #[test]
+  fn test_find_nth_asteroid_to_blast_part_2() {
+    let input = String::from("
+      .#..##.###...#######
+      ##.############..##.
+      .#.######.########.#
+      .###.#######.####.#.
+      #####.##.#.##.###.##
+      ..#####..#.#########
+      ####################
+      #.####....###.#.#.##
+      ##.#################
+      #####.##.###..####..
+      ..######..##.#######
+      ####.##.####...##..#
+      .#####..#.######.###
+      ##...#.##########...
+      #.##########.#######
+      .####.#.###.###.#.##
+      ....##.##.###..#####
+      .#.#.###########.###
+      #.#.#.#####.####.###
+      ###.##.####.##.#..##
+    ");
     let map = parse_asteroid_map(&input);
 
     assert_eq!(
-      find_nth_asteroid_to_blast(&map, station_pos, 9),
-      Some((15, 1)),
+      find_nth_asteroid_to_blast(&map, (11, 13), 200),
+      Some((8, 2)),
     );
   }
 
   #[test]
-  fn test_sort_angles_clockwise_starting_at_90() {
-    let points = vec![
-      (0, 2),
-      (2, 1),
-      (3, 0),
-      (3, -1),
-      (0, -2),
-      (-2, -3),
-      (-3, 0),
-      (-2, 1), 
-      (-1, 3), 
-    ];
+  fn test_angle360() {
+    assert_eq!(Angle::from_point((1, 0)).value, 0.0);
+    assert_eq!(Angle::from_point((2, 0)).value, 0.0);
 
-    let angles: Vec<Angle> = points.iter().map(|&p| Angle::from_point(p)).collect();
-    let sorted = sort_angles_clockwise_starting_at_90(&angles);
+    assert_eq!(Angle::from_point((1, 1)).value, 45.0);
+    assert_eq!(Angle::from_point((0, 1)).value, 90.0);
+
+    assert_eq!(Angle::from_point((-1, 1)).value, 135.0);
+    assert_eq!(Angle::from_point((-1, 0)).value, 180.0);
+
+    assert_eq!(Angle::from_point((0, -1)).value, 270.0);
+    assert_eq!(Angle::from_point((1, -1)).value, 315.0);
+  }
+
+  #[test]
+  fn test_relativize_point() {
+    let station = (8, 3);
+    assert_eq!(relativize_point(&station, &(8, 0)), (0, -3));
+    assert_eq!(relativize_point(&station, &(10, 3)), (2, 0));
+    assert_eq!(relativize_point(&station, &(9, 4)), (1, 1));
+    assert_eq!(relativize_point(&station, &(8, 4)), (0, 1));
+    assert_eq!(relativize_point(&station, &(8, 2)), (0, -1));
+    assert_eq!(relativize_point(&station, &(6, 1)), (-2, -2));
+  }
+
+  #[test]
+  fn test_sort_angles_clockwise_starting_at_270() {
+    let points = vec![
+      (0, -2),
+      (2, -1),
+      (3, 0),
+      (3, 1),
+      (0, 2),
+      (-2, 3),
+      (-3, 0),
+      (-2, -1), 
+      (-1, -3), 
+    ];
+    let angles: Vec<Angle> = points
+      .iter()
+      .map(|&p| Angle::from_point(p))
+      .collect();
+
+    let sorted = sort_angles_clockwise_starting_at_270(&angles);
     assert_eq!(angles, sorted);
   }
 }
